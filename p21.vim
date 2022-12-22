@@ -1,89 +1,48 @@
-let g:operators={'+':{a,b->a+b},'-':{a,b->a-b},'*':{a,b->a*b},'/':{a,b->a/b}}
-let g:reverse_operators={'+':[{c,x->c-x},{c,x->c-x}],'-':[{c,x->x-c},{c,x->c+x}],'*':[{c,x->c/x},{c,x->c/x}],'/':[{c,x->x/c},{c,x->c*x}] }
-
-function! Part1(data)
-  let solved = {}
-  for [id, op] in a:data
-    if len(split(op, ' ')) == 1
-      let solved[id] = str2nr(op)
-    endif
-  endfor
-  while !has_key(solved, 'root')
-    for [id, op] in a:data
-      if has_key(solved, id)
-        continue
-      endif
-      let [a, operator, b] = split(op, ' ')
-      if has_key(solved, a) && has_key(solved, b)
-        let v = g:operators[operator](solved[a], solved[b])
-        let solved[id] = v
-      endif
-    endfor
-  endwhile
-  return str2nr(solved['root'])
+function! Part1(ans)
+  call Solve('root', a:ans)
+  return str2nr(a:ans['root'])
 endfunction
 
-function! Propagate(target, solved, operations)
-  while !has_key(a:solved, a:target)
-    for [_id, thesecondpart] in items(a:operations)
-      let a = thesecondpart[0]
-      let task = thesecondpart[1]
-      let b = thesecondpart[2]
-      if has_key(a:solved, _id)
-        continue
-      endif
-      if has_key(a:solved, a) && has_key(a:solved, b)
-        let aa = a:solved[a]
-        let bb = a:solved[b]
-        if aa == v:null || bb == v:null
-          let v = v:null
-        else
-          let v = g:operators[task](a:solved[a], a:solved[b])
+function! Part2(ans)
+  let a:ans['humn'] = v:null
+  let [a,junk,b] = g:operations['root']
+  call Solve(a, a:ans)
+  call Solve(b, a:ans)
+  let tgt = a:ans[a] == v:null ? a : b
+  let cur = tgt == a ? a:ans[b] : a:ans[a]
+  while tgt != 'humn'
+    let [a, op, b] = g:operations[tgt]
+    let tgt = a:ans[a] == v:null ? a : b
+    let cur = tgt == a ? g:rops[op][1](cur, a:ans[b]) : g:rops[op][0](cur, a:ans[a])
+  endwhile
+  return str2nr(cur)
+endfunction
+
+function! Solve(tgt, ans)
+  while !has_key(a:ans, a:tgt)
+    for [_id, bpart] in items(g:operations)
+      let [a,op,b] = bpart
+      if has_key(a:ans, _id) | continue | endif
+      if has_key(a:ans, a) && has_key(a:ans, b)
+        if a:ans[a] == v:null || a:ans[b] == v:null | let v = v:null
+        else | let v = g:ops[op](a:ans[a], a:ans[b])
         endif
-        let a:solved[_id] = v
+        let a:ans[_id] = v
       endif
     endfor
   endwhile
 endfunction
 
-function! Part2(data)
-  let known = {}
-  let operations = {}
-  for [_id, op] in a:data
-    if len(split(op, ' ')) == 1
-      let known[_id] = str2nr(op)
-    else
-      let [a, task, b] = split(op, ' ')
-      let new_op = [a, task, b]
-      let operations[_id] = new_op
-    endif
-  endfor
-  let known['humn'] = v:null
-  let [thefirst,junk,thesecond] = operations['root']
-  call Propagate(thefirst, known, operations)
-  call Propagate(thesecond, known, operations)
-  if known[thefirst] is v:null
-    let target = thefirst
-    let current = known[thesecond]
-  else
-    let target = thesecond
-    let current = known[thefirst]
-  endif
-  while target != 'humn'
-    let [a, op, b] = operations[target]
-    if known[a] is v:null
-      let target = a
-      let current = g:reverse_operators[op][1](current, known[b])
-    endif
-    if known[b] is v:null
-      let target = b
-      let current = g:reverse_operators[op][0](current, known[a])
-    endif
-  endwhile
-  let solution = str2nr(current)
-  return solution
-endfunction
-
+let g:ops={'+':{a,b->a+b},'-':{a,b->a-b},'*':{a,b->a*b},'/':{a,b->a/b}}
+let g:rops={'+':[{c,x->c-x},{c,x->c-x}],'-':[{c,x->x-c},{c,x->c+x}],'*':[{c,x->c/x},{c,x->c/x}],'/':[{c,x->x/c},{c,x->c*x}] }
+let ans = {}
 let input_ = readfile('C:/Users/Andrew/Desktop/part21.txt')
-let data = map(input_, { idx, val -> split(val, ': ') })
-echo Part1(data) . " " . Part2(data)
+let operations = {}
+for [_id, op] in map(input_, { idx, val -> split(val, ': ') })
+  if len(split(op, ' ')) == 1 | let ans[_id] = str2nr(op)
+  else
+    let new_op = split(op, ' ')
+    let operations[_id] = new_op
+  endif
+endfor
+echo Part1(deepcopy(ans)) . " " . Part2(deepcopy(ans))
